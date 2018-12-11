@@ -1,4 +1,5 @@
-import os
+# TODO: Work on output folder structure, naming, and node 'grab_info' for workaround to get voxel dimensions. 
+# import os
 from os.path import join
 
 from nipype import config, logging
@@ -6,7 +7,7 @@ from nipype.interfaces.io import SelectFiles, DataSink
 from nipype.interfaces.ants import Registration, RegistrationSynQuick
 from nipype.interfaces.spm import Smooth, Coregister, ApplyTransform
 from nipype.interfaces.fsl import (BET, ExtractROI, FAST, FLIRT, ImageMaths,
-                                   MCFLIRT, SliceTimer, Threshold, ApplyXFM, FNIRT)      
+                                   MCFLIRT, SliceTimer, Threshold, ApplyXFM, FLIRT)      
 from nipype.interfaces.fsl.maths import Threshold                                                     
 from nipype.interfaces.afni import Resample
 from nipype.interfaces.spm.utils import ResliceToReference
@@ -26,19 +27,19 @@ base_dir = '/data/fastertemp/uqdeden1/Nextcloud/COREG2018-Q0585/project'
 data_dir = join(base_dir,'data')
 working_dir = join(base_dir,'workingdir')
 output_dir = join(base_dir,'outputdir')
-# log_dir = join(base_dir,'logdir')
+log_dir = join(base_dir,'logdir')
 outpath_mat = join(base_dir,output_dir,'matrices','')
 outpath_df = join(base_dir,output_dir)
 
 # Subject List
 subjects =  ['subject_1', 'subject_2' , 'subject_3', 'subject_4']
-templates = {'anat': data_dir+'/{subject_id}/anat.nii', # {'label': path_to_data/image.nii'}
+templates = {'anat': data_dir+'/{subject_id}/anat.nii',
              'mask': data_dir+'/{subject_id}/mask.nii',
              'slab': data_dir+'/{subject_id}/slab.nii'}
 
 # Sampling Values
 t_min, t_max, t_step = 0, 50, 10
-r_min, r_max, r_step = 0, 15, 15
+r_min, r_max, r_step = 0, 15, 5
 min_dim, max_dim, step_dim = 0.5, 4.0, 0.5
 min_var, max_var, samp_var = 0.001, 0.01, 10
 
@@ -120,15 +121,15 @@ coreg_fsl = Node(FLIRT(cost_func='bbr',
                         uses_qform=True), 
                     name="coreg_fsl") # iterfield=['in_file']) # Example of turning a variable into an iterfield.
 
-FNIRT_anat2func = Node(FNIRT(cost_func='bbr',
+FLIRT_anat2func = Node(FLIRT(cost_func='bbr',
                             output_type='NIFTI', 
                             uses_qform=True), 
                         name="FLIRT_anat2func")
 
-FNIRT_func2anat = Node(FLIRT(cost_func='bbr', 
+FLIRT_func2anat = Node(FLIRT(cost_func='bbr', 
                             output_type='NIFTI', 
                             uses_qform=True), 
-                        name="FNIRT_func2anat")
+                        name="FLIRT_func2anat")
 
 coreg_ANTs_SyNQuick = Node(RegistrationSynQuick(num_threads=2, 
                                                 transform_type='a'), 
@@ -181,13 +182,18 @@ masked.connect([
 
                 # Co-registration w/ FSL (anat to func)
                 (resample, FLIRT_anat2func, [('out_file','reference')]),
-                (selectfiles, FNIRT_anat2func, [('anat','in_file')]),
-                (FNIRT_anat2func, datasink, [('out_file','mask.3_coreg_anat2func')]),
+                (selectfiles, FLIRT_anat2func, [('anat','in_file')]),
+                (FLIRT_anat2func, datasink, [('out_file','mask.3_coreg_anat2func')]),
 
                 # Coregistration w/ FSL (func to anat)
-                (resample, coreg_FNIRT_func2anat, [('out_file','in_file')]),
-                (selectfiles, coreg_FNIRT_func2anat, [('anat','reference')]),
-                (coreg_FNIRT_func2anat, datasink, [('out_file','mask.3_coreg_func2anat.FNIRT')]),
+                (resample, FLIRT_func2anat, [('out_file','in_file')]),
+                (selectfiles, FLIRT_func2anat, [('anat','reference')]),
+                (FLIRT_func2anat, datasink, [('out_file','mask.3_coreg_func2anat.FLIRT')]),
+
+                # Coregistration w/ SPM (func to anat)
+                (resample, coreg_spm, [('out_file','source')]),
+                (selectfiles, coreg_spm, [('anat','target')]),
+                (coreg_spm, datasink, [('coregistered_files','mask.3_coreg_func2anat.Coregister')]),
 
                 # Coregistration w/ ANTs_SyNQuick
                 (resample, coreg_ANTs_SyNQuick, [('out_file','moving_image')]),

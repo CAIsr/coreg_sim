@@ -70,8 +70,11 @@ def compute(outpath, subject_id, in_mat, out_mat): # overwrite_dat=OVERWRITE_DF
   df_out.to_csv(f)
   print (df_out)
 
+# def grab_info(in_file):
+
+
 def dataframe(df_path, subject_id, subject_template, in_mat, out_mat): # overwrite_dat=OVERWRITE_DF
-  import os
+  import os # Imports must be made inside Node Function. 
   import pandas as pd
   from utils import compute_rmse, vec
 
@@ -84,11 +87,15 @@ def dataframe(df_path, subject_id, subject_template, in_mat, out_mat): # overwri
   cols_r = list(df)
   if not cols_h != cols_r:
     e = 'Column names do not match. Please check.'
-    return print (e) 
-  mat_id = in_mat.split('/')[-1] # px, py, pz = v[0], v[1], v[2], # rx, ry, rz = xx, # l = v[3]
-  t, r = mat_id.split('_')[0], mat_id.split('_')[1]
+    return print (e)
+  matfile_id = in_mat.split('/')[-1]
+  px, py, pz, vec_length = vec(in_mat,out_mat)
+  rx, ry, rz = None, None, None
+  trans, rot = matfile_id.split('_')[0], matfile_id.split('_')[1]
   vox_dim = '1' # find params of functions, to get vox_dim ## HERE
-  rmse = compute_rmse
-  df_tmp = pd.DataFrame([[subject_id,mat_id,vec[0],vec[1],vec[2],vec[3],t,r,vox_dim,rmse]], columns=cols_r)
+  rmse = compute_rmse(in_mat,out_mat)
+
+  df_tmp = pd.DataFrame([[subject_id,matfile_id,px,py,pz,vec_length,trans,rot,vox_dim,rmse]], columns=cols_r)
+
   df = df.append(df_tmp, ignore_index=True)
   df.to_csv(df_path)

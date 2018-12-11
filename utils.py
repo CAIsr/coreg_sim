@@ -1,10 +1,12 @@
+import os
+import numpy as np
+import pandas as pd
+from math import pow, sqrt
 from os.path import join
 
 # ------------- Create Folders -------------------
 
 def create_folders(working_dir, output_dir, overwrite_df):
-  import pandas as pd
-
   mat_foldname = 'matrices'
   mat_foldpath = join(output_dir,mat_foldname)
   df_filename = 'dataframe.csv'
@@ -69,15 +71,15 @@ def matrix(rotation=(0,0,0), translation=(0,0,0)):
                   [0, 0, 0, 1]])
   return np.dot(Rz, np.dot(Ry, np.dot(Rx,T)))
 
-def randomise_transformations(t_min, t_max, t_step, r_min, r_max, r_step): # removed z
+def randomise_transformations(t_min, t_max, t_step, r_min, r_max, r_step):
   # Randomised vectors (i.e. x, y, z) with fixed lengths in range [r_min, r_max].
-  from math import pow, sqrt
-  from random import uniform 
-  t_samps = (t_min-t_max)/t_step
+  from random import uniform
+
+  t_samps = (t_max-t_min)/t_step
   r_samps = (r_max-r_min)/r_step
-  p = [[0,0,0,0]] # removed z
-  l = [x for x in np.linspace(t_min,t_max,n_samps+1) if x > 0]
-  r = [x for x in np.linspace(r_min,r_max,n_samps_r+1)]
+  p = [[0,0,0,0]]
+  l = [x for x in np.linspace(t_min,t_max,t_samps+1) if x > 0]
+  r = [x for x in np.linspace(r_min,r_max,r_samps+1)]
   for i in l:
     z = uniform(0,i)
     y = uniform(0,i)
@@ -87,6 +89,7 @@ def randomise_transformations(t_min, t_max, t_step, r_min, r_max, r_step): # rem
 
 def matrix_lst(Rx, Ry, Rz, Tx, Ty, Tz):
   from itertools import product
+
   rot_lst = (list(product(Rx, Ry, Rz, (0,), (0,), (0,))))
   trl_lst = (list(product((0,), (0,), (0,), Tx, Ty, Tz)))
   com_lst = (list(product(Rx, Ry, Rz, Tx, Ty, Tz)))
@@ -99,14 +102,14 @@ def generate_matfiles(outpath, t_min, t_max, t_step, r_min, r_max, r_step, prefi
     f_name = prefix + '_' + ''.join(str(float(c[0][3]))) + '_' + str(float(c[1])) + '.mat' # why ''.join??
     f_name.replace('.','')
     f = join(outpath, f_name)
-    m = matrix((0,c[1],0), c[0]) # rotation only in y
+    m = matrix((0,c[1],0), c[0]) # Rotation only about y. Can modify if needed.
     if not os.path.isfile(f):
       np.savetxt(f, m, fmt='%f')
     else:
       if overwrite is not None:
         np.savetxt(f, m, fmt='%f')
       else:
-        print("Checking \'%s\'..." % f_name)
+        print("Checking \'%s\'" % f_name)
 
 def list_of_matfiles(outpath):
   l, n = [], []
@@ -127,19 +130,16 @@ def vox_lst(min_dim=0.5,max_dim=2.0,step=0.1):
   return vox_lst
 
 def var_lst(min_var=0.001, max_var=0.01, samples=10):
-  import numpy as np
   return list(np.linspace(min_var, max_var, samples))
 
 # ------------- Compute Output Values -------------------
 
 def compute_pixel_sim(img1, img2):
-  import numpy as np
   err = np.sum(np.absolute(img1 - img2))
   err /= float(img2.shape[0] * img2.shape[1] * img2.shape[2])
   return err
 
 def vec(in_mat, out_mat):
-  from math import pow, sqrt
   a, b = np.loadtxt(in_mat), np.loadtxt(out_mat) # Variable 'b' not used here.
   p, point = [0,0,0], (0,0,0)
   for r in range(3):
@@ -151,8 +151,6 @@ def vec(in_mat, out_mat):
   return px, py, pz, l
 
 def compute_len(in_mat, out_mat):
-  import numpy as np
-  from math import pow, sqrt
   a, b = np.loadtxt(in_mat), np.loadtxt(out_mat)
   p0, point = [0,0,0], (0,0,0) # (1,1,1) # from utils import vector
   for r in range(3):
@@ -165,13 +163,11 @@ def compute_len(in_mat, out_mat):
   return px, py, pz, l
 
 def compute_mse(img1, img2):
-  import numpy as np
   err = np.sum((img1 - img2) ** 2)
   err /= float(img2.shape[0] * img2.shape[1] * img2.shape[2])
   return err
 
 def compute_rmse(in_mat, out_mat):
-  import numpy as np
   a, b = np.loadtxt(in_mat), np.loadtxt(out_mat)
   rmse = np.sqrt(((np.matmul(a,b)-np.identity(4))**2).mean())
   return str(round(rmse, 6))
@@ -180,10 +176,7 @@ def compute_rmse(in_mat, out_mat):
 
 def big_panda(base_dir, output_dir, overwrite_df, list_of_folders=[]):
   # Expected that dataframe.csv is located in general output directory. 
-  import numpy as np
-  import pandas as pd
   from os import listdir
-  from math import pow, sqrt
   import nibabel as nib
 
   list_of_folders = ['masked/coreg_fsl']
